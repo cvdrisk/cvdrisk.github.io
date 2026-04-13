@@ -1,8 +1,452 @@
-import { useState, useMemo } from "react";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IHD Risk & Vascular Age Estimator — Copenhagen Male Study</title>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #faf9f7;
+    --ink: #1a1a2e;
+    --muted: #9ca3af;
+    --light: #6b7280;
+    --border: #e5e7eb;
+    --card: #fff;
+    --green-deep: #2D6A4F;
+    --green-light: #52B788;
+    --amber: #E09F3E;
+    --orange: #CA6702;
+    --red: #9B2226;
+  }
 
-const FONT_URL = "https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap";
+  * { margin: 0; padding: 0; box-sizing: border-box; }
 
-// Age-risk reference table (10-year IHD risk % by age, baseline population)
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 32px 20px 48px;
+  }
+
+  .badge {
+    display: inline-block;
+    background: var(--ink);
+    color: var(--border);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 4px 10px;
+    border-radius: 3px;
+    margin-bottom: 12px;
+  }
+
+  h1 {
+    font-family: 'Crimson Pro', serif;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.2;
+    margin-bottom: 6px;
+  }
+
+  .subtitle {
+    font-size: 12px;
+    color: var(--light);
+    line-height: 1.5;
+    margin-bottom: 28px;
+  }
+
+  /* Sliders */
+  .slider-group { margin-bottom: 28px; }
+  .slider-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+  }
+  .slider-label { font-size: 13px; font-weight: 600; color: #374151; }
+  .slider-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .slider-unit { font-size: 12px; font-weight: 500; color: var(--muted); }
+  .slider-wrap { position: relative; height: 40px; }
+
+  input[type=range] {
+    width: 100%;
+    appearance: none;
+    -webkit-appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+    position: relative;
+    z-index: 2;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--ink);
+    border: 3px solid #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+    cursor: pointer;
+    margin-top: -8px;
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--ink);
+    border: 3px solid #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+    cursor: pointer;
+  }
+
+  .slider-ticks {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+    padding: 0 2px;
+  }
+  .slider-ticks span { font-size: 9px; color: var(--muted); text-align: center; }
+  .slider-ticks span::before {
+    content: '';
+    display: block;
+    width: 1px;
+    height: 6px;
+    background: #d1d5db;
+    margin: 0 auto 2px;
+  }
+
+  .mg-note {
+    text-align: right;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: -20px;
+    margin-bottom: 20px;
+  }
+
+  /* Ratio pill */
+  .ratio-pill {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 24px;
+  }
+  .ratio-pill-inner {
+    background: #f3f4f6;
+    border-radius: 20px;
+    padding: 6px 18px;
+    font-size: 13px;
+    color: #374151;
+  }
+  .ratio-pill-inner strong {
+    color: var(--ink);
+    font-size: 15px;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    margin-bottom: 16px;
+    border: 2px solid var(--border);
+    transition: border-color 0.3s;
+  }
+
+  /* Vascular age */
+  .vasc-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .vasc-age-num {
+    font-size: 44px;
+    font-weight: 700;
+    line-height: 1;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .vasc-label {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 500;
+    margin-bottom: 2px;
+  }
+  .vasc-diff {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .vasc-badge {
+    color: #fff;
+    padding: 5px 12px;
+    border-radius: 16px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    display: inline-block;
+  }
+  .vasc-desc {
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.4;
+    text-align: right;
+  }
+
+  /* RR display */
+  .rr-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .rr-num {
+    font-size: 48px;
+    font-weight: 700;
+    line-height: 1;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .rr-badge {
+    color: #fff;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  /* Risk bar */
+  .risk-bar-bg {
+    background: #f3f4f6;
+    border-radius: 6px;
+    height: 12px;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .risk-bar-fill {
+    position: absolute;
+    left: 0; top: 0;
+    height: 100%;
+    background: linear-gradient(90deg, var(--green-deep), var(--amber), var(--red));
+    border-radius: 6px;
+    transition: width 0.3s ease;
+  }
+  .risk-bar-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  /* Triple boxes */
+  .triple-row {
+    margin-top: 16px;
+    display: flex;
+    gap: 8px;
+  }
+  .triple-box {
+    flex: 1;
+    padding: 10px 8px;
+    border-radius: 8px;
+    text-align: center;
+  }
+  .triple-box-label {
+    font-size: 9px;
+    color: var(--muted);
+    margin-bottom: 3px;
+  }
+
+  /* Formula */
+  .formula-box {
+    background: var(--card);
+    border-radius: 10px;
+    padding: 14px 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    margin-bottom: 20px;
+  }
+  .formula-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .formula-code {
+    font-family: 'DM Mono', monospace, 'Courier New', monospace;
+    font-size: 10px;
+    color: #374151;
+    line-height: 2;
+    background: #f9fafb;
+    padding: 10px 12px;
+    border-radius: 6px;
+  }
+  .formula-code .dim { color: var(--muted); }
+  .formula-code .lbl { color: var(--light); }
+  .formula-code .sep { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 4px; }
+
+  /* Reference grid */
+  .grid-card {
+    background: var(--card);
+    border-radius: 10px;
+    padding: 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    margin-bottom: 20px;
+  }
+  .grid-card table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+  .grid-card th, .grid-card td {
+    padding: 6px 4px;
+    text-align: center;
+  }
+  .grid-card th { font-weight: 600; }
+  .grid-card td:first-child { text-align: left; font-weight: 600; color: #374151; }
+  .grid-sub { font-size: 9px; font-weight: 500; color: var(--muted); }
+
+  .disclaimer {
+    font-size: 10px;
+    color: #b0b0b0;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 400px) {
+    .container { padding: 20px 14px 40px; }
+    h1 { font-size: 20px; }
+    .rr-num { font-size: 38px; }
+    .vasc-age-num { font-size: 36px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container" id="app">
+  <div class="badge">Interactive Calculator</div>
+  <h1>IHD Risk &amp; Vascular Age Estimator</h1>
+  <p class="subtitle">Based on Copenhagen Male Study (Jeppesen et al. 1998). 10-year risk normalized via constant hazard model, then age-adjusted from study mean age of 63.</p>
+
+  <!-- Age -->
+  <div class="slider-group">
+    <div class="slider-header">
+      <span class="slider-label">Your Age</span>
+      <span class="slider-value"><span id="age-val">63</span> <span class="slider-unit">yrs</span></span>
+    </div>
+    <div class="slider-wrap">
+      <input type="range" id="age-slider" min="40" max="79" step="1" value="63">
+      <div class="slider-ticks"><span>40</span><span>50</span><span>60</span><span>70</span><span>79</span></div>
+    </div>
+  </div>
+
+  <!-- TG -->
+  <div class="slider-group">
+    <div class="slider-header">
+      <span class="slider-label">Fasting Triglycerides</span>
+      <span class="slider-value"><span id="tg-val">1.37</span> <span class="slider-unit">mmol/L</span></span>
+    </div>
+    <div class="slider-wrap">
+      <input type="range" id="tg-slider" min="0.53" max="2.80" step="0.01" value="1.37">
+      <div class="slider-ticks"><span>0.53</span><span>1.06</span><span>1.37</span><span>1.68</span><span>2.80</span></div>
+    </div>
+  </div>
+  <div class="mg-note" id="tg-mg">≈ 121 mg/dL</div>
+
+  <!-- HDL -->
+  <div class="slider-group">
+    <div class="slider-header">
+      <span class="slider-label">HDL Cholesterol</span>
+      <span class="slider-value"><span id="hdl-val">1.24</span> <span class="slider-unit">mmol/L</span></span>
+    </div>
+    <div class="slider-wrap">
+      <input type="range" id="hdl-slider" min="0.70" max="2.00" step="0.01" value="1.24">
+      <div class="slider-ticks"><span>0.70</span><span>1.06</span><span>1.24</span><span>1.42</span><span>2.00</span></div>
+    </div>
+  </div>
+  <div class="mg-note" id="hdl-mg">≈ 48 mg/dL</div>
+
+  <!-- TG/HDL ratio -->
+  <div class="ratio-pill">
+    <div class="ratio-pill-inner">TG/HDL ratio (mg/dL): <strong id="ratio-val">2.5</strong></div>
+  </div>
+
+  <!-- Vascular Age card -->
+  <div class="card vasc-card" id="vasc-card">
+    <div>
+      <div class="vasc-label">Estimated Vascular Age</div>
+      <div class="vasc-age-num" id="vasc-age">63</div>
+      <div class="vasc-diff" id="vasc-diff">+0 yrs vs actual age 63</div>
+    </div>
+    <div style="text-align:right">
+      <div class="vasc-badge" id="vasc-badge">Near your age</div><br>
+      <div class="vasc-desc" id="vasc-desc">Your lipids give you the<br>IHD risk of a 63-year-old</div>
+    </div>
+  </div>
+
+  <!-- RR + Incidence card -->
+  <div class="card" id="rr-card">
+    <div class="rr-header">
+      <div>
+        <div style="font-size:12px;color:var(--muted);font-weight:500;margin-bottom:4px">Relative Risk (lipid-driven)</div>
+        <div class="rr-num" id="rr-num">1.00×</div>
+      </div>
+      <div class="rr-badge" id="rr-badge">Lowest risk</div>
+    </div>
+    <div class="risk-bar-bg">
+      <div class="risk-bar-fill" id="risk-bar" style="width:0%"></div>
+    </div>
+    <div class="risk-bar-labels"><span>1.0× (best)</span><span>4.2× (worst)</span></div>
+    <div class="triple-row">
+      <div class="triple-box" style="background:#f9fafb">
+        <div class="triple-box-label">8-yr (study)</div>
+        <div style="font-size:14px;font-weight:700;color:#b0b0b0" id="inc8">7.2%</div>
+      </div>
+      <div class="triple-box" style="background:#f9fafb">
+        <div class="triple-box-label">10-yr @63</div>
+        <div style="font-size:14px;font-weight:700;color:var(--light)" id="inc10-63">8.9%</div>
+      </div>
+      <div class="triple-box" style="background:var(--ink)">
+        <div class="triple-box-label" style="color:var(--muted)">10-yr @<span id="inc10-age-label">63</span></div>
+        <div style="font-size:18px;font-weight:700;color:#fff" id="inc10-adj">8.9%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Formula -->
+  <div class="formula-box">
+    <div class="formula-title">How It Works</div>
+    <div class="formula-code" id="formula-code"></div>
+  </div>
+
+  <!-- Reference grid -->
+  <div class="grid-card">
+    <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:4px">Reference Grid — 10-Year IHD Risk @63</div>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:10px" id="grid-subtitle">RR vs best group (3.9%)</div>
+    <table id="ref-grid"></table>
+  </div>
+
+  <p class="disclaimer">
+    Source: Jeppesen et al. Circulation 1998;97(11):1029–36 &amp; ATVB 1997;17:1114–20. Study cohort mean age 63 (range 53–74). 10-yr normalization: constant hazard model. Age adjustment scales by population baseline risk ratio. Vascular age: age at which baseline population risk matches your lipid-adjusted risk. For illustration only, not clinical guidance.
+  </p>
+</div>
+
+<script>
+// === DATA ===
+const grid8yr = [
+  [7.4, 3.1, 3.5],
+  [10.2, 7.2, 5.4],
+  [13.1, 9.8, 8.5],
+];
+
 const ageRiskTable = [
   [40,0.80],[41,0.92],[42,1.04],[43,1.19],[44,1.34],[45,1.52],[46,1.71],[47,1.91],
   [48,2.14],[49,2.39],[50,2.67],[51,2.97],[52,3.29],[53,3.64],[54,4.03],[55,4.43],
@@ -11,349 +455,187 @@ const ageRiskTable = [
   [72,17.8],[73,19.0],[74,20.4],[75,21.7],[76,23.1],[77,24.5],[78,26.1],[79,27.7],
 ];
 
-// Study baseline risk at age 63 = 9.05%
 const STUDY_AGE = 63;
-const STUDY_BASE_RISK = 9.05;
-
-// Find the age in the table whose risk is closest to a given value
-function findClosestAge(risk) {
-  let closest = ageRiskTable[0];
-  let minDiff = Math.abs(risk - closest[1]);
-  for (const entry of ageRiskTable) {
-    const diff = Math.abs(risk - entry[1]);
-    if (diff < minDiff) { minDiff = diff; closest = entry; }
-  }
-  return closest[0];
-}
-
-// Get risk for a given age (linear interpolation)
-function getRiskForAge(age) {
-  if (age <= 40) return ageRiskTable[0][1];
-  if (age >= 79) return ageRiskTable[ageRiskTable.length - 1][1];
-  const idx = ageRiskTable.findIndex(e => e[0] >= age);
-  if (ageRiskTable[idx][0] === age) return ageRiskTable[idx][1];
-  const [a0, r0] = ageRiskTable[idx - 1];
-  const [a1, r1] = ageRiskTable[idx];
-  return r0 + (r1 - r0) * (age - a0) / (a1 - a0);
-}
-
-// IHD incidence grid from 1998 study — 8-year cumulative
-const grid8yr = [
-  [7.4, 3.1, 3.5],
-  [10.2, 7.2, 5.4],
-  [13.1, 9.8, 8.5],
-];
 
 function normalize10yr(p8) {
   const h = -Math.log(1 - p8 / 100) / 8;
   return (1 - Math.exp(-h * 10)) * 100;
 }
 
-const grid10yr = grid8yr.map(row => row.map(v => normalize10yr(v)));
+const grid10yr = grid8yr.map(r => r.map(normalize10yr));
 const best10yr = normalize10yr(3.1);
 
 function bilinearInterp(grid, tg, hdl) {
-  const tgMids = [0.8, 1.37, 2.2];
-  const hdlMids = [0.88, 1.24, 1.65];
-  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+  const tgMids = [0.8, 1.37, 2.2], hdlMids = [0.88, 1.24, 1.65];
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const t = clamp(tg, tgMids[0], tgMids[2]);
   const h = clamp(hdl, hdlMids[0], hdlMids[2]);
-  let ti = t >= tgMids[1] ? 1 : 0;
-  let hi2 = h >= hdlMids[1] ? 1 : 0;
-  const t0 = tgMids[ti], t1 = tgMids[ti + 1];
-  const h0 = hdlMids[hi2], h1 = hdlMids[hi2 + 1];
-  const tf = (t - t0) / (t1 - t0);
-  const hf = (h - h0) / (h1 - h0);
-  return grid[ti][hi2] * (1 - tf) * (1 - hf) + grid[ti + 1][hi2] * tf * (1 - hf) + grid[ti][hi2 + 1] * (1 - tf) * hf + grid[ti + 1][hi2 + 1] * tf * hf;
+  const ti = t >= tgMids[1] ? 1 : 0;
+  const hi = h >= hdlMids[1] ? 1 : 0;
+  const tf = (t - tgMids[ti]) / (tgMids[ti+1] - tgMids[ti]);
+  const hf = (h - hdlMids[hi]) / (hdlMids[hi+1] - hdlMids[hi]);
+  return grid[ti][hi]*(1-tf)*(1-hf) + grid[ti+1][hi]*tf*(1-hf) + grid[ti][hi+1]*(1-tf)*hf + grid[ti+1][hi+1]*tf*hf;
 }
 
-function getRiskColor(rr) {
-  if (rr <= 1.2) return "#2D6A4F";
-  if (rr <= 1.8) return "#52B788";
-  if (rr <= 2.5) return "#E09F3E";
-  if (rr <= 3.2) return "#CA6702";
-  return "#9B2226";
+function getRiskForAge(age) {
+  if (age <= 40) return ageRiskTable[0][1];
+  if (age >= 79) return ageRiskTable[ageRiskTable.length-1][1];
+  const idx = ageRiskTable.findIndex(e => e[0] >= age);
+  if (ageRiskTable[idx][0] === age) return ageRiskTable[idx][1];
+  const [a0,r0] = ageRiskTable[idx-1], [a1,r1] = ageRiskTable[idx];
+  return r0 + (r1-r0)*(age-a0)/(a1-a0);
 }
 
-function getRiskLabel(rr) {
-  if (rr <= 1.3) return "Lowest risk";
-  if (rr <= 1.8) return "Mildly elevated";
-  if (rr <= 2.5) return "Moderately elevated";
-  if (rr <= 3.2) return "High risk";
-  return "Highest risk";
+function findClosestAge(risk) {
+  let best = ageRiskTable[0], minD = Math.abs(risk - best[1]);
+  for (const e of ageRiskTable) { const d = Math.abs(risk - e[1]); if (d < minD) { minD = d; best = e; } }
+  return best[0];
 }
 
-function Slider({ label, unit, value, onChange, min, max, step, marks, subtitle }) {
-  const pct = ((value - min) / (max - min)) * 100;
-  return (
-    <div style={{ marginBottom: 28 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
-        <div>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>{label}</span>
-          {subtitle && <span style={{ fontSize: 10, color: "#9ca3af", marginLeft: 6 }}>{subtitle}</span>}
-        </div>
-        <span style={{ fontSize: 22, fontWeight: 700, color: "#1a1a2e", fontFamily: "'DM Sans', sans-serif" }}>
-          {Number.isInteger(value) ? value : value.toFixed(2)}
-          <span style={{ fontSize: 12, fontWeight: 500, color: "#9ca3af" }}> {unit}</span>
-        </span>
-      </div>
-      <div style={{ position: "relative", height: 40 }}>
-        <input type="range" min={min} max={max} step={step} value={value}
-          onChange={(e) => onChange(parseFloat(e.target.value))}
-          style={{ width: "100%", appearance: "none", WebkitAppearance: "none", height: 6, borderRadius: 3,
-            background: `linear-gradient(90deg, #1a1a2e ${pct}%, #e5e7eb ${pct}%)`,
-            outline: "none", cursor: "pointer", position: "relative", zIndex: 2 }} />
-        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, padding: "0 2px" }}>
-          {marks.map((m, i) => (
-            <div key={i} style={{ textAlign: "center" }}>
-              <div style={{ width: 1, height: 6, background: "#d1d5db", margin: "0 auto 2px" }} />
-              <span style={{ fontSize: 9, color: "#9ca3af" }}>{m}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+function riskColor(rr) {
+  if (rr <= 1.2) return '#2D6A4F';
+  if (rr <= 1.8) return '#52B788';
+  if (rr <= 2.5) return '#E09F3E';
+  if (rr <= 3.2) return '#CA6702';
+  return '#9B2226';
 }
 
-export default function RRCalculator() {
-  const [tg, setTg] = useState(1.37);
-  const [hdl, setHdl] = useState(1.24);
-  const [age, setAge] = useState(63);
+function riskLabel(rr) {
+  if (rr <= 1.3) return 'Lowest risk';
+  if (rr <= 1.8) return 'Mildly elevated';
+  if (rr <= 2.5) return 'Moderately elevated';
+  if (rr <= 3.2) return 'High risk';
+  return 'Highest risk';
+}
 
-  const results = useMemo(() => {
-    const inc8 = bilinearInterp(grid8yr, tg, hdl);
-    const inc10_at63 = bilinearInterp(grid10yr, tg, hdl);
-    const rr = inc10_at63 / best10yr;
+function vascAgeLabel(diff) {
+  if (diff <= -3) return 'Younger than your age';
+  if (diff <= 0) return 'Near your age';
+  if (diff <= 5) return 'Older than your age';
+  return 'Much older than your age';
+}
 
-    // Age adjustment:
-    // 1. The study's calculated risk is for age 63 (mean age of cohort)
-    // 2. Get the user's baseline risk at their age from the age-risk table
-    // 3. Get the baseline risk at age 63 from the table
-    // 4. Scale the study result by the ratio
-    const baseRiskAtUserAge = getRiskForAge(age);
-    const baseRiskAt63 = getRiskForAge(STUDY_AGE);
-    const ageScaleFactor = baseRiskAtUserAge / baseRiskAt63;
-    const inc10_ageAdjusted = inc10_at63 * ageScaleFactor;
+function vascAgeColor(diff) {
+  if (diff <= -3) return '#2D6A4F';
+  if (diff <= 0) return '#52B788';
+  if (diff <= 3) return '#E09F3E';
+  if (diff <= 6) return '#CA6702';
+  return '#9B2226';
+}
 
-    // Vascular age: find the age whose baseline risk matches
-    // the user's age-adjusted risk
-    // The user's actual risk = inc10_ageAdjusted
-    // Find which age in the table corresponds to that risk for a person
-    // with ideal lipids (best group risk scaled by age)
-    // Vascular age method: risk at user's lipids for their age = baseline risk at what age?
-    // i.e. their lipid-adjusted risk equals the baseline population risk at age X
-    // ageDiff = closestAge(inc10_at63) - 63, then vascularAge = age + ageDiff
-    const ageMatchingStudyRisk = findClosestAge(inc10_at63);
-    const ageDiff = ageMatchingStudyRisk - STUDY_AGE;
-    const vascularAge = age + ageDiff;
+// === DOM ===
+const $ = id => document.getElementById(id);
 
-    return { inc8, inc10_at63, inc10_ageAdjusted, rr, ageScaleFactor, ageDiff, vascularAge };
-  }, [tg, hdl, age]);
+function updateSliderBg(el) {
+  const pct = ((el.value - el.min) / (el.max - el.min)) * 100;
+  el.style.background = `linear-gradient(90deg, #1a1a2e ${pct}%, #e5e7eb ${pct}%)`;
+}
 
-  const { inc8, inc10_at63, inc10_ageAdjusted, rr, ageScaleFactor, ageDiff, vascularAge } = results;
-  const color = getRiskColor(rr);
-  const riskLabel = getRiskLabel(rr);
+function update() {
+  const age = parseInt($('age-slider').value);
+  const tg = parseFloat($('tg-slider').value);
+  const hdl = parseFloat($('hdl-slider').value);
+
+  // Display values
+  $('age-val').textContent = age;
+  $('tg-val').textContent = tg.toFixed(2);
+  $('hdl-val').textContent = hdl.toFixed(2);
+
   const tgMg = (tg * 88.57).toFixed(0);
   const hdlMg = (hdl * 38.67).toFixed(0);
-  const tgHdlRatio = (parseFloat(tgMg) / parseFloat(hdlMg)).toFixed(1);
-  const hazard = -Math.log(1 - inc8 / 100) / 8;
+  $('tg-mg').textContent = `≈ ${tgMg} mg/dL`;
+  $('hdl-mg').textContent = `≈ ${hdlMg} mg/dL`;
+  $('ratio-val').textContent = (tgMg / hdlMg).toFixed(1);
 
-  const vascAgeColor = ageDiff <= -3 ? "#2D6A4F" : ageDiff <= 0 ? "#52B788" : ageDiff <= 3 ? "#E09F3E" : ageDiff <= 6 ? "#CA6702" : "#9B2226";
-  const vascAgeLabel = ageDiff <= -3 ? "Younger than your age" : ageDiff <= 0 ? "Near your age" : ageDiff <= 5 ? "Older than your age" : "Much older than your age";
+  // Compute
+  const inc8 = bilinearInterp(grid8yr, tg, hdl);
+  const inc10_63 = bilinearInterp(grid10yr, tg, hdl);
+  const rr = inc10_63 / best10yr;
+  const baseUser = getRiskForAge(age);
+  const base63 = getRiskForAge(STUDY_AGE);
+  const inc10_adj = inc10_63 * (baseUser / base63);
+  const matchedAge = findClosestAge(inc10_63);
+  const ageDiff = matchedAge - STUDY_AGE;
+  const vascAge = age + ageDiff;
+  const hazard = -Math.log(1 - inc8/100) / 8;
 
-  return (
-    <>
-      <link href={FONT_URL} rel="stylesheet" />
-      <style>{`
-        input[type=range]::-webkit-slider-thumb {
-          -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%;
-          background: #1a1a2e; border: 3px solid #fff;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.25); cursor: pointer; margin-top: -8px;
-        }
-        input[type=range]::-moz-range-thumb {
-          width: 22px; height: 22px; border-radius: 50%;
-          background: #1a1a2e; border: 3px solid #fff;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.25); cursor: pointer;
-        }
-      `}</style>
-      <div style={{ maxWidth: 480, margin: "0 auto", padding: "32px 20px 40px",
-        fontFamily: "'DM Sans', sans-serif", background: "#faf9f7", minHeight: "100vh" }}>
+  const col = riskColor(rr);
+  const vcol = vascAgeColor(ageDiff);
 
-        <div style={{ display: "inline-block", background: "#1a1a2e", color: "#e5e7eb",
-          fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em",
-          padding: "4px 10px", borderRadius: 3, marginBottom: 12 }}>
-          Interactive Calculator
-        </div>
+  // Vascular age card
+  $('vasc-card').style.borderColor = vcol;
+  $('vasc-age').textContent = Math.round(vascAge);
+  $('vasc-age').style.color = vcol;
+  $('vasc-diff').textContent = `${ageDiff > 0 ? '+' : ''}${ageDiff} yrs vs actual age ${age}`;
+  $('vasc-badge').textContent = vascAgeLabel(ageDiff);
+  $('vasc-badge').style.background = vcol;
+  $('vasc-desc').innerHTML = `Your lipids give you the<br>IHD risk of a ${Math.round(vascAge)}-year-old`;
 
-        <h1 style={{ fontFamily: "'Crimson Pro', serif", fontSize: 24, fontWeight: 700,
-          color: "#1a1a2e", lineHeight: 1.2, marginBottom: 6 }}>
-          IHD Risk &amp; Vascular Age Estimator
-        </h1>
-        <p style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.5, margin: "0 0 28px" }}>
-          Based on Copenhagen Male Study (Jeppesen et al. 1998). 10-year risk normalized via constant hazard model, then age-adjusted from study mean age of 63.
-        </p>
+  // RR card
+  $('rr-card').style.borderColor = col;
+  $('rr-num').textContent = rr.toFixed(2) + '×';
+  $('rr-num').style.color = col;
+  $('rr-badge').textContent = riskLabel(rr);
+  $('rr-badge').style.background = col;
+  $('risk-bar').style.width = Math.min(100, ((rr-1)/(4.23-1))*100) + '%';
 
-        {/* Age slider */}
-        <Slider label="Your Age" unit="yrs" value={age} onChange={setAge}
-          min={40} max={79} step={1}
-          marks={["40", "50", "60", "70", "79"]} />
+  $('inc8').textContent = inc8.toFixed(1) + '%';
+  $('inc10-63').textContent = inc10_63.toFixed(1) + '%';
+  $('inc10-age-label').textContent = age;
+  $('inc10-adj').textContent = inc10_adj.toFixed(1) + '%';
 
-        <Slider label="Fasting Triglycerides" unit="mmol/L" value={tg} onChange={setTg}
-          min={0.53} max={2.8} step={0.01} marks={["0.53", "1.06", "1.37", "1.68", "2.80"]} />
-        <div style={{ textAlign: "right", fontSize: 11, color: "#9ca3af", marginTop: -20, marginBottom: 20 }}>
-          ≈ {tgMg} mg/dL
-        </div>
+  // Formula
+  $('formula-code').innerHTML = `
+    <span class="lbl">1. 10-yr normalize:</span> h = −ln(1−P₈)/8 → P₁₀ = 1−e<sup style="font-size:8px">−h×10</sup><br>
+    <span class="lbl">2. Age adjust:</span> P₁₀(@${age}) = P₁₀(@63) × baseRisk(${age}) / baseRisk(63)<br>
+    <div class="sep dim">
+      P₁₀(@63) = ${inc10_63.toFixed(1)}% × (${baseUser.toFixed(2)} / ${base63.toFixed(2)}) = <strong style="color:var(--ink)">${inc10_adj.toFixed(1)}%</strong>
+    </div>
+    <div class="sep dim">
+      <span class="lbl">3. Vascular age:</span> baseline risk ≈ ${inc10_63.toFixed(1)}% → matched age = ${matchedAge}, diff = ${ageDiff > 0?'+':''}${ageDiff}<br>
+      → <strong style="color:${vcol}">vascular age = ${age} + (${ageDiff > 0?'+':''}${ageDiff}) = ${Math.round(vascAge)}</strong>
+    </div>
+  `;
 
-        <Slider label="HDL Cholesterol" unit="mmol/L" value={hdl} onChange={setHdl}
-          min={0.7} max={2.0} step={0.01} marks={["0.70", "1.06", "1.24", "1.42", "2.00"]} />
-        <div style={{ textAlign: "right", fontSize: 11, color: "#9ca3af", marginTop: -20, marginBottom: 16 }}>
-          ≈ {hdlMg} mg/dL
-        </div>
-
-        {/* TG/HDL ratio */}
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
-          <div style={{ background: "#f3f4f6", borderRadius: 20, padding: "6px 18px", fontSize: 13, color: "#374151" }}>
-            TG/HDL ratio (mg/dL): <strong style={{ color: "#1a1a2e", fontSize: 15 }}>{tgHdlRatio}</strong>
-          </div>
-        </div>
-
-        {/* Vascular Age card */}
-        <div style={{ background: "#fff", borderRadius: 12, padding: "20px",
-          boxShadow: "0 2px 12px rgba(0,0,0,0.06)", border: `2px solid ${vascAgeColor}`,
-          marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <div style={{ fontSize: 11, color: "#9ca3af", fontWeight: 500, marginBottom: 2 }}>
-              Estimated Vascular Age
-            </div>
-            <div style={{ fontSize: 44, fontWeight: 700, color: vascAgeColor, lineHeight: 1, fontFamily: "'DM Sans', sans-serif" }}>
-              {Math.round(vascularAge)}
-            </div>
-            <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>
-              {ageDiff > 0 ? `+${ageDiff}` : ageDiff} yrs vs actual age {age}
-            </div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ background: vascAgeColor, color: "#fff", padding: "5px 12px",
-              borderRadius: 16, fontSize: 11, fontWeight: 700, marginBottom: 6 }}>
-              {vascAgeLabel}
-            </div>
-            <div style={{ fontSize: 10, color: "#9ca3af", lineHeight: 1.4 }}>
-              Your lipids give you the<br/>IHD risk of a {Math.round(vascularAge)}-year-old
-            </div>
-          </div>
-        </div>
-
-        {/* RR + Incidence card */}
-        <div style={{ background: "#fff", borderRadius: 12, padding: "24px 20px",
-          boxShadow: "0 2px 12px rgba(0,0,0,0.06)", border: `2px solid ${color}`, marginBottom: 20 }}>
-
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-            <div>
-              <div style={{ fontSize: 12, color: "#9ca3af", fontWeight: 500, marginBottom: 4 }}>
-                Relative Risk (lipid-driven)
-              </div>
-              <div style={{ fontSize: 48, fontWeight: 700, color, lineHeight: 1, fontFamily: "'DM Sans', sans-serif" }}>
-                {rr.toFixed(2)}×
-              </div>
-            </div>
-            <div style={{ background: color, color: "#fff", padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>
-              {riskLabel}
-            </div>
-          </div>
-
-          {/* Risk bar */}
-          <div style={{ background: "#f3f4f6", borderRadius: 6, height: 12, position: "relative", overflow: "hidden", marginBottom: 12 }}>
-            <div style={{ position: "absolute", left: 0, top: 0, height: "100%",
-              width: `${Math.min(100, ((rr - 1) / (4.23 - 1)) * 100)}%`,
-              background: "linear-gradient(90deg, #2D6A4F, #E09F3E, #9B2226)",
-              borderRadius: 6, transition: "width 0.3s ease" }} />
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#9ca3af" }}>
-            <span>1.0× (best)</span>
-            <span>4.2× (worst)</span>
-          </div>
-
-          {/* Triple incidence display */}
-          <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
-            <div style={{ flex: 1, padding: "10px 8px", background: "#f9fafb", borderRadius: 8, textAlign: "center" }}>
-              <div style={{ fontSize: 9, color: "#9ca3af", marginBottom: 3 }}>8-yr (study)</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#b0b0b0" }}>{inc8.toFixed(1)}%</div>
-            </div>
-            <div style={{ flex: 1, padding: "10px 8px", background: "#f9fafb", borderRadius: 8, textAlign: "center" }}>
-              <div style={{ fontSize: 9, color: "#9ca3af", marginBottom: 3 }}>10-yr @63</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#6b7280" }}>{inc10_at63.toFixed(1)}%</div>
-            </div>
-            <div style={{ flex: 1, padding: "10px 8px", background: "#1a1a2e", borderRadius: 8, textAlign: "center" }}>
-              <div style={{ fontSize: 9, color: "#9ca3af", marginBottom: 3 }}>10-yr @{age}</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>{inc10_ageAdjusted.toFixed(1)}%</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Formula box */}
-        <div style={{ background: "#fff", borderRadius: 10, padding: "14px 16px",
-          boxShadow: "0 1px 4px rgba(0,0,0,0.04)", marginBottom: 20 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#1a1a2e", marginBottom: 8 }}>
-            How It Works
-          </div>
-          <div style={{ fontFamily: "monospace", fontSize: 10, color: "#374151", lineHeight: 2,
-            background: "#f9fafb", padding: "10px 12px", borderRadius: 6 }}>
-            <span style={{ color: "#6b7280" }}>1. 10-yr normalize:</span> h = −ln(1−P₈)/8 → P₁₀ = 1−e<sup style={{ fontSize: 8 }}>−h×10</sup><br/>
-            <span style={{ color: "#6b7280" }}>2. Age adjust:</span> P₁₀(@{age}) = P₁₀(@63) × baseRisk({age}) / baseRisk(63)<br/>
-            <div style={{ borderTop: "1px solid #e5e7eb", marginTop: 4, paddingTop: 4, color: "#9ca3af" }}>
-              P₁₀(@63) = {inc10_at63.toFixed(1)}% × ({getRiskForAge(age).toFixed(2)} / {getRiskForAge(63).toFixed(2)}) = <strong style={{ color: "#1a1a2e" }}>{inc10_ageAdjusted.toFixed(1)}%</strong>
-            </div>
-            <div style={{ borderTop: "1px solid #e5e7eb", marginTop: 4, paddingTop: 4, color: "#9ca3af" }}>
-              <span style={{ color: "#6b7280" }}>3. Vascular age:</span> find age where baseRisk ≈ P₁₀(@63) = {inc10_at63.toFixed(1)}%<br/>
-              → matched age = {findClosestAge(inc10_at63)}, diff = {ageDiff > 0 ? "+" : ""}{ageDiff} → <strong style={{ color: vascAgeColor }}>vascular age = {age} + ({ageDiff > 0 ? "+" : ""}{ageDiff}) = {Math.round(vascularAge)}</strong>
-            </div>
-          </div>
-        </div>
-
-        {/* Reference table */}
-        <div style={{ background: "#fff", borderRadius: 10, padding: "16px",
-          boxShadow: "0 1px 4px rgba(0,0,0,0.04)", marginBottom: 20 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#1a1a2e", marginBottom: 4 }}>
-            Reference Grid — 10-Year IHD Risk @63
-          </div>
-          <div style={{ fontSize: 10, color: "#9ca3af", marginBottom: 10 }}>
-            RR vs best group ({best10yr.toFixed(1)}%)
-          </div>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
-            <thead>
-              <tr>
-                <th style={{ padding: "6px 4px", textAlign: "left", color: "#9ca3af", fontWeight: 600 }}></th>
-                <th style={{ padding: "6px 4px", textAlign: "center", color: "#9B2226", fontWeight: 600 }}>Low HDL</th>
-                <th style={{ padding: "6px 4px", textAlign: "center", color: "#E09F3E", fontWeight: 600 }}>Mid HDL</th>
-                <th style={{ padding: "6px 4px", textAlign: "center", color: "#2D6A4F", fontWeight: 600 }}>High HDL</th>
-              </tr>
-            </thead>
-            <tbody>
-              {["Low TG", "Mid TG", "High TG"].map((label, ri) => (
-                <tr key={ri}>
-                  <td style={{ padding: "6px 4px", fontWeight: 600, color: "#374151" }}>{label}</td>
-                  {grid10yr[ri].map((val, ci) => {
-                    const thisRR = val / best10yr;
-                    return (
-                      <td key={ci} style={{ padding: "6px 4px", textAlign: "center", fontWeight: 700,
-                        color: getRiskColor(thisRR),
-                        background: thisRR <= 1.05 ? "rgba(45,106,79,0.08)" : "transparent", borderRadius: 4 }}>
-                        <div>{thisRR.toFixed(2)}×</div>
-                        <div style={{ fontSize: 9, fontWeight: 500, color: "#9ca3af" }}>{val.toFixed(1)}%</div>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <p style={{ fontSize: 10, color: "#b0b0b0", lineHeight: 1.6 }}>
-          Source: Jeppesen et al. Circulation 1998;97(11):1029–36 &amp; ATVB 1997;17:1114–20. Study cohort mean age 63 (range 53–74). 10-yr normalization: constant hazard model. Age adjustment scales by population baseline risk ratio. Vascular age: age at which baseline population risk matches your lipid-adjusted risk. For illustration only, not clinical guidance.
-        </p>
-      </div>
-    </>
-  );
+  // Slider backgrounds
+  updateSliderBg($('age-slider'));
+  updateSliderBg($('tg-slider'));
+  updateSliderBg($('hdl-slider'));
 }
+
+// Build reference grid once
+function buildGrid() {
+  $('grid-subtitle').textContent = `RR vs best group (${best10yr.toFixed(1)}%)`;
+  const labels = ['Low TG', 'Mid TG', 'High TG'];
+  const hdlLabels = ['Low HDL', 'Mid HDL', 'High HDL'];
+  const hdlColors = ['#9B2226', '#E09F3E', '#2D6A4F'];
+  let html = '<thead><tr><th style="text-align:left;color:var(--muted)"></th>';
+  hdlLabels.forEach((l,i) => html += `<th style="color:${hdlColors[i]}">${l}</th>`);
+  html += '</tr></thead><tbody>';
+  for (let ri = 0; ri < 3; ri++) {
+    html += `<tr><td>${labels[ri]}</td>`;
+    for (let ci = 0; ci < 3; ci++) {
+      const val = grid10yr[ri][ci];
+      const thisRR = val / best10yr;
+      const c = riskColor(thisRR);
+      const bg = thisRR <= 1.05 ? 'rgba(45,106,79,0.08)' : 'transparent';
+      html += `<td style="font-weight:700;color:${c};background:${bg};border-radius:4px">
+        <div>${thisRR.toFixed(2)}×</div>
+        <div class="grid-sub">${val.toFixed(1)}%</div>
+      </td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody>';
+  $('ref-grid').innerHTML = html;
+}
+
+// Init
+buildGrid();
+['age-slider','tg-slider','hdl-slider'].forEach(id => {
+  $(id).addEventListener('input', update);
+});
+update();
+</script>
+</body>
+</html>
