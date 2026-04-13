@@ -554,9 +554,8 @@ function update() {
   const baseUser = getRiskForAge(age);
   const base63 = getRiskForAge(STUDY_AGE);
   const inc10_adj = inc10_63 * (baseUser / base63);
-  const matchedAge = findClosestAge(inc10_63);
-  const ageDiff = matchedAge - STUDY_AGE;
-  const vascAge = age + ageDiff;
+  const vascAge = findClosestAge(inc10_adj);
+  const ageDiff = vascAge - age;
   const hazard = -Math.log(1 - inc8/100) / 8;
 
   const col = riskColor(rr);
@@ -564,12 +563,12 @@ function update() {
 
   // Vascular age card
   $('vasc-card').style.borderColor = vcol;
-  $('vasc-age').textContent = Math.round(vascAge);
+  $('vasc-age').textContent = vascAge;
   $('vasc-age').style.color = vcol;
   $('vasc-diff').textContent = `${ageDiff > 0 ? '+' : ''}${ageDiff} yrs vs actual age ${age}`;
   $('vasc-badge').textContent = vascAgeLabel(ageDiff);
   $('vasc-badge').style.background = vcol;
-  $('vasc-desc').innerHTML = `Your lipids give you the<br>IHD risk of a ${Math.round(vascAge)}-year-old`;
+  $('vasc-desc').innerHTML = `Your lipids give you the<br>IHD risk of a ${vascAge}-year-old`;
 
   // RR card
   $('rr-card').style.borderColor = col;
@@ -592,8 +591,7 @@ function update() {
       P₁₀(@63) = ${inc10_63.toFixed(1)}% × (${baseUser.toFixed(2)} / ${base63.toFixed(2)}) = <strong style="color:var(--ink)">${inc10_adj.toFixed(1)}%</strong>
     </div>
     <div class="sep dim">
-      <span class="lbl">3. Vascular age:</span> baseline risk ≈ ${inc10_63.toFixed(1)}% → matched age = ${matchedAge}, diff = ${ageDiff > 0?'+':''}${ageDiff}<br>
-      → <strong style="color:${vcol}">vascular age = ${age} + (${ageDiff > 0?'+':''}${ageDiff}) = ${Math.round(vascAge)}</strong>
+      <span class="lbl">3. Vascular age:</span> age-adjusted risk = ${inc10_adj.toFixed(1)}% → closest baseline age = <strong style="color:${vcol}">${vascAge}</strong> (${ageDiff > 0?'+':''}${ageDiff} yrs vs actual age ${age})
     </div>
   `;
 
